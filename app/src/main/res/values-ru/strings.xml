@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Random Ringtone by yakiecho</string>
+    <string name="tvsf_not_choised">Выбранная папка: не выбрана</string>
+    <string name="select_folder">Выбрать папку</string>
+    <string name="set_random_ringtone">Установить случайный рингтон (для проверки работы замены рингтона)</string>
+    <string name="selected_folder">Выбранная папка: %1$s</string>
+    <string name="selected_folder_not_avaible">Ошибка: выбранная папка недоступна. Выберите снова.</string>
+    <string name="selected_folder_error">Ошибка загрузки папки. Выберите снова.</string>
+    <string name="selected_folder_not_setted_ahead">Папка не выбрана. Выберите папку.</string>
+    <string name="selected_folder_error_cannot_save">Ошибка: невозможно сохранить папку.</string>
+    <string name="selected_folder_error_access_to_folder_forbiden">Ошибка: доступ к папке отклонён.</string>
+    <string name="selected_folder_error_while_save">Ошибка при сохранении папки.</string>
+    <string name="random_ringtone_setted">Случайный рингтон установлен!</string>
+    <string name="cannot_add_ringtone_to_mediastore">Не удалось добавить файл в медиатеку.</string>
+    <string name="error_setting_ringtone_to_mediastore">Ошибка установки рингтона: %1$s</string>
+    <string name="theres_no_audio_files_in_folder">Нет доступных файлов в выбранной папке.</string>
+    <string name="access_to_WSP_not_given">Разрешение для изменения рингтона не предоставлено.</string>
+    <string name="access_to_mediastore_not_given">Разрешение для доступа к медиафайлам не предоставлено.</string>
+    <string name="notification_text">Сервис работает в фоновом режиме.</string>
+</resources>

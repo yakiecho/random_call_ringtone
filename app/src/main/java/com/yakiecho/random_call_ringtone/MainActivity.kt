@@ -31,10 +31,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var buttonSelectFolder: Button
     private lateinit var telephonyManager: TelephonyManager
     private lateinit var phoneStateListener: PhoneStateListener
-    private var selectedFolderPath: Uri? = null  // Изменили на Uri
+    private lateinit var PrefManager: PrefManager
+    private var selectedFolderPath: Uri? = null
     private var isCallStateChecked = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        PrefManager = PrefManager(this)
+        selectedFolderPath = PrefManager.loadSavedFolderPath()
+
         val serviceIntent = Intent(this, RandomRingtoneService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
@@ -46,6 +50,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         selectedFolderTextView = findViewById(R.id.textViewSelectedFolder)
+
+        if (selectedFolderPath == null) {
+            selectedFolderTextView.text = getString(R.string.selected_folder_not_avaible)
+
+        } else {
+            selectedFolderTextView.text =
+                getString(R.string.selected_folder, selectedFolderPath)
+        }
+
         buttonSetRandomRingtone = findViewById(R.id.buttonSetRandomRingtone)
         buttonSelectFolder = findViewById(R.id.buttonSelectFolder)
 
@@ -58,8 +71,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         checkAndRequestPermissions()
-
-        loadSavedFolderPath()
 
         telephonyManager = getSystemService(TELEPHONY_SERVICE) as TelephonyManager
 
@@ -74,6 +85,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     else -> {
+                        Log.d(globallogtag+ mainactivitylogtag, "State on start is true")
                         isCallStateChecked = true  // Устанавливаем флаг, чтобы в следующий раз метод вызывался
                     }
                 }
@@ -84,92 +96,15 @@ class MainActivity : AppCompatActivity() {
         telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
     }
 
-    private fun loadSavedFolderPath() {
-        val preferences = PreferenceManager.getDefaultSharedPreferences(this)
-        val folderUriString = preferences.getString("selected_folder_path", null)
-
-        Log.d("RingtoneReceiver", "Loaded pref path: $folderUriString")
-
-        if (folderUriString != null) {
-            try {
-                selectedFolderPath = Uri.parse(folderUriString)
-
-                // Восстанавливаем сохраненные разрешения
-                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                try {
-                    contentResolver.takePersistableUriPermission(selectedFolderPath!!, takeFlags)
-                } catch (e: SecurityException) {
-                    Log.e("RingtoneReceiver", "Unable to take persistable permission: ${e.message}")
-                }
-
-                // Проверяем доступность папки
-                val folderDocumentFile = DocumentFile.fromTreeUri(this, selectedFolderPath!!)
-                val folderExistBool = folderDocumentFile?.exists() == true
-                val pathIsFolder = folderDocumentFile?.isDirectory == true
-
-                Log.d("RingtoneReceiver", "folderExistBool: $folderExistBool, pathIsFolder: $pathIsFolder")
-
-                if (folderExistBool && pathIsFolder) {
-                    selectedFolderTextView.text =
-                        getString(R.string.selected_folder, folderDocumentFile?.uri)
-                } else {
-                    selectedFolderTextView.text = getString(R.string.selected_folder_not_avaible)
-                    selectedFolderPath = null
-                }
-            } catch (e: Exception) {
-                Log.e("RingtoneReceiver", "Exception while loading folder: ${e.message}")
-                selectedFolderTextView.text = getString(R.string.selected_folder_error)
-                selectedFolderPath = null
-            }
-        } else {
-            selectedFolderTextView.text = getString(R.string.selected_folder_not_setted_ahead)
-        }
-    }
-
-    private fun saveFolderPath(uri: Uri) {
-        try {
-            val preferences = PreferenceManager.getDefaultSharedPreferences(this)
-            preferences.edit().putString("selected_folder_path", uri.toString()).apply()
-
-            Log.d("RingtoneReceiver", "Saved pref path: $uri")
-
-            selectedFolderPath = uri
-
-            // Сохраняем разрешения на доступ
-            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            contentResolver.takePersistableUriPermission(uri, takeFlags)
-
-            // Проверяем доступность папки
-            val folderDocumentFile = DocumentFile.fromTreeUri(this, uri)
-            val folderExistBool = folderDocumentFile?.exists() == true
-            val pathIsFolder = folderDocumentFile?.isDirectory == true
-
-            Log.d("RingtoneReceiver", "folderExistBool: $folderExistBool, pathIsFolder: $pathIsFolder")
-
-            if (folderExistBool && pathIsFolder) {
-                selectedFolderTextView.text = getString(R.string.selected_folder, folderDocumentFile?.uri)
-            } else {
-                selectedFolderTextView.text = getString(R.string.selected_folder_error_cannot_save)
-            }
-        } catch (e: SecurityException) {
-            Log.e("RingtoneReceiver", "SecurityException: ${e.message}")
-            selectedFolderTextView.text =
-                getString(R.string.selected_folder_error_access_to_folder_forbiden)
-        } catch (e: Exception) {
-            Log.e("RingtoneReceiver", "Exception: ${e.message}")
-            selectedFolderTextView.text = getString(R.string.selected_folder_error_while_save)
-        }
-    }
-
-
     private val folderPickerLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
             uri?.let {
-                saveFolderPath(it)
+                PrefManager.saveFolderPath(it)
+                selectedFolderTextView.text = selectedFolderPath.toString()
             }
         }
 
-    fun onSelectFolderClick() {
+    private fun onSelectFolderClick() {
         folderPickerLauncher.launch(null)
     }
 
@@ -216,13 +151,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun onSetRandomRingtoneClick() {
-        Log.d("RingtoneReceiver", "Clicked")
+        Log.d(globallogtag+ mainactivitylogtag, "Clicked with ${selectedFolderPath}")
         if (isWriteSettingsPermissionGranted()) {
             selectedFolderPath?.let { folderUri ->
                 val randomRingtoneUri = getRandomRingtoneUri(folderUri)
                 if (randomRingtoneUri != null) {
                     try {
-                        Log.d("RingtoneReceiver", "Setting ringtone: $randomRingtoneUri")
+                        Log.d(globallogtag+ mainactivitylogtag, "Setting ringtone: $randomRingtoneUri")
 
                         // Добавление в медиатеку
                         val newUri = addRingtoneToMediaStore(File(randomRingtoneUri.path!!))
@@ -248,6 +183,7 @@ class MainActivity : AppCompatActivity() {
                         getString(R.string.theres_no_audio_files_in_folder)
                 }
             } ?: run {
+                Log.d(globallogtag+ mainactivitylogtag, "Not setted ahead")
                 selectedFolderTextView.text = getString(R.string.selected_folder_not_setted_ahead)
             }
         } else {
@@ -256,13 +192,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getRandomRingtoneUri(folderUri: Uri): Uri? {
-        Log.d("RingtoneReceiver", "File search init for folder: $folderUri")
+        Log.d(globallogtag+ mainactivitylogtag, "File search init for folder: $folderUri")
 
         // Получаем DocumentFile для работы с Uri
         val folderDocumentFile = DocumentFile.fromTreeUri(this, folderUri)
 
         if (folderDocumentFile == null || !folderDocumentFile.exists() || !folderDocumentFile.isDirectory) {
-            Log.d("RingtoneReceiver", "Invalid folder Uri or not a directory: $folderUri")
+            Log.d(globallogtag+ mainactivitylogtag, "Invalid folder Uri or not a directory: $folderUri")
             return null
         }
 
@@ -274,13 +210,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (soundFiles.isEmpty()) {
-            Log.d("RingtoneReceiver", "No valid sound files found.")
+            Log.d(globallogtag+ mainactivitylogtag, "No valid sound files found.")
             return null
         }
 
         // Выбираем случайный файл
         val randomFile = soundFiles[Random.nextInt(soundFiles.size)]
-        Log.d("RingtoneReceiver", "Selected random file: ${randomFile.name}")
+        Log.d(globallogtag+ mainactivitylogtag, "Selected random file: ${randomFile.name}")
 
         // Возвращаем Uri этого файла
         return randomFile.uri

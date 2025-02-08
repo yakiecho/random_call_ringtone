@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- Приложение -->
     <application
@@ -21,12 +22,23 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Random_call_ringtone"
-        tools:targetApi="31">
+        tools:targetApi="33">
 
+        <!-- Сервис, запускаемый как foreground -->
         <service
             android:name=".RandomRingtoneService"
             android:foregroundServiceType="mediaPlayback"
             android:exported="false" />
+
+        <!-- BroadcastReceiver для автозапуска сервиса после загрузки устройства -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
 
         <!-- Главная активность -->
         <activity

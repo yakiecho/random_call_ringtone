@@ -29,10 +29,14 @@ class RandomRingtoneService : Service() {
 
     private lateinit var telephonyManager: TelephonyManager
     private lateinit var phoneStateListener: PhoneStateListener
+    private lateinit var PrefManager: PrefManager
     private var selectedFolderPath: Uri? = null
 
     override fun onCreate() {
-        Log.d("RandomRingtoneService", "Init service.")
+        PrefManager = PrefManager(this)
+        selectedFolderPath = PrefManager.loadSavedFolderPath()
+
+        Log.d(globallogtag+ randomringtoneservicelogtag, "Init service.")
         try {
             super.onCreate()
             // Инициализация канала уведомлений и уведомления
@@ -56,17 +60,9 @@ class RandomRingtoneService : Service() {
                 notify(1, notification)
             }
             startForeground(1, notification)
-            Log.d("RandomRingtoneService", "Notification started.")
+            Log.d(globallogtag+ randomringtoneservicelogtag, "Notification started.")
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error initializing service: ${e.message}")
-            e.printStackTrace()
-        }
-
-        // Загружаем сохранённый путь к папке
-        try {
-            loadSavedFolderPath()
-        } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error loading saved folder path: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error initializing service: ${e.message}")
             e.printStackTrace()
         }
 
@@ -77,7 +73,7 @@ class RandomRingtoneService : Service() {
                 override fun onCallStateChanged(state: Int, phoneNumber: String?) {
                     super.onCallStateChanged(state, phoneNumber)
                     if (state == TelephonyManager.CALL_STATE_IDLE) {
-                        Log.d("RandomRingtoneService", "Call ended, setting random ringtone.")
+                        Log.d(globallogtag+ randomringtoneservicelogtag, "Call ended, setting random ringtone.")
                         setRandomRingtone()
                     }
                 }
@@ -85,9 +81,14 @@ class RandomRingtoneService : Service() {
             // Регистрация слушателя состояния звонков
             telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_CALL_STATE)
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error initializing TelephonyManager: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error initializing TelephonyManager: ${e.message}")
             e.printStackTrace()
         }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Используем START_STICKY для автоматического перезапуска сервиса, если он будет убит системой
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -99,7 +100,7 @@ class RandomRingtoneService : Service() {
 
             telephonyManager.listen(phoneStateListener, PhoneStateListener.LISTEN_NONE)
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error during service destruction: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error during service destruction: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -107,8 +108,9 @@ class RandomRingtoneService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun setRandomRingtone() {
+        Log.d(globallogtag+ randomringtoneservicelogtag, "Clicked with ${selectedFolderPath}")
         if (selectedFolderPath == null) {
-            Log.e("RandomRingtoneService", "No folder selected for ringtones.")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "No folder selected for ringtones.")
             return
         }
 
@@ -123,16 +125,16 @@ class RandomRingtoneService : Service() {
                         RingtoneManager.TYPE_RINGTONE,
                         newUri
                     )
-                    Log.d("RandomRingtoneService", "Random ringtone set: $newUri")
+                    Log.d(globallogtag+ randomringtoneservicelogtag, "Random ringtone set: $newUri")
                 } else {
-                    Log.e("RandomRingtoneService", "Failed to add ringtone to MediaStore.")
+                    Log.e(globallogtag+ randomringtoneservicelogtag, "Failed to add ringtone to MediaStore.")
                 }
             } catch (e: Exception) {
-                Log.e("RandomRingtoneService", "Error setting ringtone: ${e.message}")
+                Log.e(globallogtag+ randomringtoneservicelogtag, "Error setting ringtone: ${e.message}")
                 e.printStackTrace()
             }
         } else {
-            Log.d("RandomRingtoneService", "No valid ringtone files found.")
+            Log.d(globallogtag+ randomringtoneservicelogtag, "No valid ringtone files found.")
         }
     }
 
@@ -140,7 +142,7 @@ class RandomRingtoneService : Service() {
         try {
             val folderDocumentFile = DocumentFile.fromTreeUri(this, folderUri)
             if (folderDocumentFile == null || !folderDocumentFile.exists() || !folderDocumentFile.isDirectory) {
-                Log.e("RandomRingtoneService", "Invalid folder Uri or not a directory.")
+                Log.e(globallogtag+ randomringtoneservicelogtag, "Invalid folder Uri or not a directory.")
                 return null
             }
 
@@ -149,13 +151,13 @@ class RandomRingtoneService : Service() {
             }
 
             if (soundFiles.isEmpty()) {
-                Log.d("RandomRingtoneService", "No valid sound files found in folder.")
+                Log.d(globallogtag+ randomringtoneservicelogtag, "No valid sound files found in folder.")
                 return null
             }
 
             return soundFiles[Random.nextInt(soundFiles.size)].uri
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error getting random ringtone: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error getting random ringtone: ${e.message}")
             e.printStackTrace()
             return null
         }
@@ -191,24 +193,9 @@ class RandomRingtoneService : Service() {
 
             return newUri
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error adding ringtone to MediaStore: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error adding ringtone to MediaStore: ${e.message}")
             e.printStackTrace()
             return null
-        }
-    }
-
-    private fun loadSavedFolderPath() {
-        try {
-            val preferences = PreferenceManager.getDefaultSharedPreferences(this)
-            val folderUriString = preferences.getString("selected_folder_path", null)
-            if (folderUriString != null) {
-                selectedFolderPath = Uri.parse(folderUriString)
-            } else {
-                Log.e("RandomRingtoneService", "No folder path saved.")
-            }
-        } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error loading saved folder path: ${e.message}")
-            e.printStackTrace()
         }
     }
 
@@ -239,7 +226,7 @@ class RandomRingtoneService : Service() {
                 manager.createNotificationChannel(serviceChannel)
             }
         } catch (e: Exception) {
-            Log.e("RandomRingtoneService", "Error creating notification channel: ${e.message}")
+            Log.e(globallogtag+ randomringtoneservicelogtag, "Error creating notification channel: ${e.message}")
             e.printStackTrace()
         }
     }
